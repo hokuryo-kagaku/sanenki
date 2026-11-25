@@ -56,6 +56,19 @@
          color:#fff; font-size:24px; font-weight:800; letter-spacing:.1em; text-shadow:0 1px 0 rgba(0,0,0,.15);}
   .start:active{transform:translateY(5px); box-shadow:0 1px 0 var(--accentD);}
 
+  .chal{display:flex; flex-direction:column; align-items:center; gap:6px; margin-top:-6px;}
+  .chalBtn{border:none; border-radius:30px; padding:13px 30px; cursor:pointer; color:#fff; font-size:18px; font-weight:800;
+           background:linear-gradient(135deg,#ff5f6d,#b14cff); box-shadow:0 5px 0 #7d2bb8; letter-spacing:.04em;}
+  .chalBtn:active{transform:translateY(4px); box-shadow:0 1px 0 #7d2bb8;}
+  .chal .best-lbl{letter-spacing:.1em;}
+  .unlock{width:100%; border-radius:20px; padding:16px; color:#fff; text-align:center; animation:pop .6s 1.4s both;
+          background:linear-gradient(135deg,#ff5f6d,#b14cff); box-shadow:0 6px 18px rgba(177,76,255,.35);}
+  .unlock .u1{font-size:20px; font-weight:800;}
+  .unlock .u2{font-size:14px; opacity:.95; margin:4px 0 12px; line-height:1.6;}
+  .unlock button{border:none; border-radius:14px; padding:12px 26px; background:#fff; color:#8a2fd0; font-size:17px; font-weight:800; cursor:pointer;}
+  .mode-lbl{display:inline-block; font-size:13px; font-weight:800; color:#fff; border-radius:12px; padding:2px 12px; margin-right:6px;
+            background:linear-gradient(135deg,#ff5f6d,#b14cff);}
+  .prog.many{gap:2px;} .prog.many i{height:7px; border-radius:2px;}
   .sumBtn{border:none; border-radius:30px; padding:12px 28px; cursor:pointer; background:#fff; color:var(--text);
           font-size:16px; font-weight:700; box-shadow:0 3px 0 var(--line), 0 2px 8px rgba(120,90,40,.1); margin-top:-8px;}
   .sumBtn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--line);}
@@ -211,6 +224,10 @@
         <div class="best-val num" id="bestStart"></div>
       </div>
       <button class="start" id="startBtn">スタート</button>
+      <div class="chal" id="chalBox" hidden>
+        <button class="chalBtn" id="chalBtn">🔥 全問チャレンジ</button>
+        <div class="best-lbl" id="chalBest"></div>
+      </div>
       <button class="sumBtn" id="sumBtn">📋 酸・塩基のまとめを見る</button>
     </div>
   </section>
@@ -233,7 +250,7 @@
     </div>
     <div class="prog" id="prog"></div>
     <div class="qcard">
-      <span class="qno" id="qno">第1問</span>
+      <span class="mode-lbl" id="qMode" hidden>全問チャレンジ</span><span class="qno" id="qno">第1問</span>
       <div class="qtext" id="qtext"></div>
     </div>
     <div class="opts" id="opts"></div>
@@ -253,9 +270,14 @@
         <div class="res-msg" id="rMsg"></div>
         <div class="res-badge" id="rBadge"></div>
         <div class="stars" id="stars"><span>★</span><span>★</span><span>★</span></div>
-        <div class="score">10問中 <b class="num" id="rScore"></b> 問 正解</div>
+        <div class="score"><span id="rTotal">10</span>問中 <b class="num" id="rScore"></b> 問 正解</div>
       </div>
       <div class="newbest" id="rNew" hidden>★ 自己ベスト更新！ ★</div>
+      <div class="unlock" id="rUnlock" hidden>
+        <div class="u1" id="rUnlockTtl">🔓 全問チャレンジ 解放！</div>
+        <div class="u2" id="rUnlockTxt"></div>
+        <button id="rUnlockBtn">🔥 挑戦する</button>
+      </div>
       <div class="res-sub" id="rBest"></div>
       <div class="review" id="review"></div>
       <div class="btns">
@@ -290,7 +312,9 @@ const S = [
   {n:"アンモニア",      f:"NH<sub>3</sub>",           v:1, t:"塩基", s:"弱", fake:["NH<sub>4</sub>","NH<sub>2</sub>","N<sub>3</sub>H"]}
 ];
 const N_Q = 10;
-const KEY = "sanenki-best";
+// 自己ベストの保存名（normal＝10問、all＝全問チャレンジ）と、全問チャレンジ解放の印
+const KEYS = {normal:"sanenki-best", all:"sanenki-best-all"};
+const UNLOCK_KEY = "sanenki-unlocked";
 const KINDS = ["強酸","弱酸","強塩基","弱塩基"];
 const VALS = ["1価","2価","3価","4価"];
 
@@ -300,6 +324,7 @@ const F = f => '<span class="f">' + f + '</span>';
 const line = s => s.n + "　" + F(s.f) + "　は <b>" + s.v + "価の" + kind(s) + "</b>";
 const shuffle = a => { for(let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const pick = (a, k) => shuffle(a.slice()).slice(0, k);
+const N_ALL = makePool().length; // 全問チャレンジの問題数
 
 // ===== 問題を作る =====
 function makePool(){
@@ -336,15 +361,21 @@ function pickQuestions(){
 }
 
 // ===== 進行 =====
-let qs, idx, score, wrongs, results;
+let mode = "normal", qs, idx, score, wrongs, results;
+let unlockedNow = false; // 保存できない端末でも、その場では解放されるように
 
-function getBest(){ try{ return JSON.parse(localStorage.getItem(KEY)); }catch(e){ return null; } }
-function setBest(b){ try{ localStorage.setItem(KEY, JSON.stringify(b)); }catch(e){} }
-function bestText(b){ return b ? "10問中 " + b.score + "問正解" : "まだ記録なし"; }
+function getBest(m){ try{ return JSON.parse(localStorage.getItem(KEYS[m])); }catch(e){ return null; } }
+function setBest(m, b){ try{ localStorage.setItem(KEYS[m], JSON.stringify(b)); }catch(e){} }
+function bestText(b, total){ return b ? total + "問中 " + b.score + "問正解" : "まだ記録なし"; }
+function isUnlocked(){ if(unlockedNow) return true; try{ return localStorage.getItem(UNLOCK_KEY) === "1"; }catch(e){ return false; } }
+function unlock(){ unlockedNow = true; try{ localStorage.setItem(UNLOCK_KEY, "1"); }catch(e){} }
 function show(id){ document.querySelectorAll(".screen").forEach(s => s.classList.toggle("on", s.id === id)); window.scrollTo(0, 0); }
 
-function startQuiz(){
-  qs = pickQuestions();
+function startQuiz(m){
+  mode = m === "all" ? "all" : "normal";
+  qs = mode === "all" ? shuffle(makePool()) : pickQuestions();
+  $("qMode").hidden = mode !== "all";
+  $("prog").className = "prog" + (qs.length > 15 ? " many" : "");
   idx = 0; score = 0; wrongs = []; results = [];
   $("okCount").textContent = "0";
   clearConfetti();
@@ -354,7 +385,7 @@ function startQuiz(){
 
 function render(){
   const q = qs[idx];
-  $("qno").textContent = "第" + (idx + 1) + "問";
+  $("qno").textContent = "第" + (idx + 1) + "問" + (mode === "all" ? " / " + qs.length : "");
   $("qtext").innerHTML = q.q;
   $("prog").innerHTML = qs.map((_, i) => '<i class="' + (i < idx ? results[i] : i === idx ? "now" : "") + '"></i>').join("");
   const box = $("opts");
@@ -394,13 +425,13 @@ function answer(i){
   $("fbHd").innerHTML = ok ? "正解！" : "ざんねん… 正解は「" + q.opts[q.ans] + "」";
   $("fbEx").innerHTML = q.ex;
   $("fb").className = "feedback on " + (ok ? "ok" : "ng");
-  $("nextBtn").textContent = idx === N_Q - 1 ? "結果を見る" : "次へ";
+  $("nextBtn").textContent = idx === qs.length - 1 ? "結果を見る" : "次へ";
   $("fb").scrollIntoView({behavior:"smooth", block:"nearest"});
 }
 
 function next(){
   idx++;
-  if(idx >= N_Q){ finish(); return; }
+  if(idx >= qs.length){ finish(); return; }
   render();
   window.scrollTo(0, 0);
 }
@@ -435,13 +466,25 @@ function countUp(el, to){
 }
 
 function finish(){
-  const old = getBest();
+  const total = qs.length;
+  const old = getBest(mode);
   const isNew = !old || score > old.score;
-  if(isNew) setBest({score});
-  const tier = score === 10 ? "perfect" : score >= 8 ? "great" : score >= 5 ? "ok" : "low";
+  if(isNew) setBest(mode, {score});
+  // 演出の段階（10問なら 10／8〜9／5〜7／4以下。全問チャレンジも同じ割合で判定）
+  const r = score / total;
+  const tier = score === total ? "perfect" : r >= .8 ? "great" : r >= .5 ? "ok" : "low";
+  $("rTotal").textContent = total;
   $("stage").className = "stage tier-" + tier;
   $("rMsg").textContent = {perfect:"パーフェクト！", great:"すばらしい！", ok:"もう少し！", low:"復習してもう一度！"}[tier];
-  $("rBadge").textContent = {perfect:"🏆 酸・塩基マスター 🏆", great:"あと少しで満点！", ok:"", low:""}[tier];
+  $("rBadge").textContent = mode === "all"
+    ? {perfect:"👑 酸・塩基 完全制覇 👑", great:"あと少しで全問正解！", ok:"", low:""}[tier]
+    : {perfect:"🏆 酸・塩基マスター 🏆", great:"あと少しで満点！", ok:"", low:""}[tier];
+  // 10問で満点 → 全問チャレンジを解放（初めてのときは「解放！」、2回目以降は案内だけ）
+  const firstUnlock = mode === "normal" && tier === "perfect" && !isUnlocked();
+  if(mode === "normal" && tier === "perfect") unlock();
+  $("rUnlock").hidden = !(mode === "normal" && tier === "perfect");
+  $("rUnlockTtl").textContent = firstUnlock ? "🔓 全問チャレンジ 解放！" : "🔥 全問チャレンジに挑戦しよう";
+  $("rUnlockTxt").innerHTML = "全 " + N_ALL + " 問を一気に出題する高難易度モード。<br>全問正解で「完全制覇」！";
   const nStars = {perfect:3, great:2, ok:1, low:0}[tier];
   // 星をアニメーションし直すため作り直す
   $("stars").innerHTML = [0,1,2].map(i => '<span class="' + (i < nStars ? "on" : "") + '">★</span>').join("");
@@ -449,7 +492,7 @@ function finish(){
   $("rNew").hidden = !isNew;
   if(tier === "perfect"){ confetti(160, 3); if(navigator.vibrate) navigator.vibrate([80,60,80,60,200]); }
   else if(tier === "great"){ confetti(70, 1); }
-  $("rBest").textContent = "自己ベスト：" + bestText(getBest());
+  $("rBest").textContent = (mode === "all" ? "全問チャレンジの" : "") + "自己ベスト：" + bestText(getBest(mode), total);
   $("review").innerHTML = wrongs.length === 0
     ? '<div class="perfect">全問正解！ よく覚えています 👏</div>'
     : "<h2>まちがえた問題</h2>" + wrongs.map(w =>
@@ -460,7 +503,13 @@ function finish(){
 }
 
 // タイトルの BEST は、一度でも最後まで遊んだ記録があるときだけ表示する
-function showStartBest(){ const b = getBest(); $("bestBox").hidden = !b; if(b) $("bestStart").textContent = bestText(b); }
+function showStartBest(){
+  const b = getBest("normal"); $("bestBox").hidden = !b; if(b) $("bestStart").textContent = bestText(b, N_Q);
+  // 全問チャレンジは解放済みのときだけ出す
+  $("chalBox").hidden = !isUnlocked();
+  $("chalBtn").textContent = "🔥 全問チャレンジ（" + N_ALL + "問）";
+  const c = getBest("all"); $("chalBest").textContent = c ? "BEST　" + bestText(c, N_ALL) : "";
+}
 function toTitle(){ clearConfetti(); showStartBest(); show("start"); }
 
 // ===== まとめ画面（物質データ S から作る） =====
@@ -475,10 +524,12 @@ function buildSummary(){
 }
 $("sumBtn").addEventListener("click", () => { buildSummary(); show("summary"); });
 $("sumBack").addEventListener("click", toTitle);
-$("sumStart").addEventListener("click", startQuiz);
+$("sumStart").addEventListener("click", () => startQuiz("normal"));
 
-$("startBtn").addEventListener("click", startQuiz);
-$("retryBtn").addEventListener("click", startQuiz);
+$("startBtn").addEventListener("click", () => startQuiz("normal"));
+$("chalBtn").addEventListener("click", () => startQuiz("all"));
+$("rUnlockBtn").addEventListener("click", () => startQuiz("all"));
+$("retryBtn").addEventListener("click", () => startQuiz(mode));
 $("topBtn").addEventListener("click", toTitle);
 $("nextBtn").addEventListener("click", next);
 $("quitBtn").addEventListener("click", () => $("modal").classList.add("on"));
