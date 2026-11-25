@@ -149,9 +149,9 @@
       <h1><span class="a">酸</span>・<span class="b">塩基</span>クイズ</h1>
       <p class="catch">価数・強弱・化学式をチェック！</p>
       <div class="info">4択問題が <b>10問</b> 出ます。<br>まちがえたら解説を読んで覚えよう！</div>
-      <div>
+      <div id="bestBox" hidden>
         <div class="best-lbl">BEST</div>
-        <div class="best-val num" id="bestStart">まだ記録なし</div>
+        <div class="best-val num" id="bestStart"></div>
       </div>
       <button class="start" id="startBtn">スタート</button>
     </div>
@@ -347,7 +347,9 @@ function finish(){
   show("result");
 }
 
-function toTitle(){ clearInterval(timer); $("bestStart").textContent = bestText(getBest()); show("start"); }
+// タイトルの BEST は、一度でも最後まで遊んだ記録があるときだけ表示する
+function showStartBest(){ const b = getBest(); $("bestBox").hidden = !b; if(b) $("bestStart").textContent = bestText(b); }
+function toTitle(){ clearInterval(timer); showStartBest(); show("start"); }
 
 $("startBtn").addEventListener("click", startQuiz);
 $("retryBtn").addEventListener("click", startQuiz);
@@ -356,7 +358,7 @@ $("nextBtn").addEventListener("click", next);
 $("quitBtn").addEventListener("click", () => $("modal").classList.add("on"));
 $("noBtn").addEventListener("click", () => $("modal").classList.remove("on"));
 $("yesBtn").addEventListener("click", () => { $("modal").classList.remove("on"); toTitle(); });
-$("bestStart").textContent = bestText(getBest());
+showStartBest();
 </script>
 </body>
 </html>
