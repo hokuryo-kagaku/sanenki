@@ -265,25 +265,33 @@ function makePool(){
   const pool = [];
   S.forEach(s => {
     // 価数
-    pool.push({q:"<b>" + s.n + "</b> の価数は？", opts:VALS, ans:s.v - 1, ex:line(s)});
+    pool.push({sub:s, q:"<b>" + s.n + "</b> の価数は？", opts:VALS, ans:s.v - 1, ex:line(s)});
     // 強弱（酸・塩基も含めて）
-    pool.push({q:"<b>" + s.n + "</b> は次のうちどれ？", opts:KINDS, ans:KINDS.indexOf(kind(s)), ex:line(s)});
+    pool.push({sub:s, q:"<b>" + s.n + "</b> は次のうちどれ？", opts:KINDS, ans:KINDS.indexOf(kind(s)), ex:line(s)});
     // 物質名 → 化学式（ニセの化学式2つ＋ほかの物質1つ）
     const others = S.filter(o => o !== s).map(o => o.f);
     const fo = shuffle([s.f, ...pick(s.fake, 2), ...pick(others, 1)]);
-    pool.push({q:"<b>" + s.n + "</b> の化学式は？", opts:fo.map(F), ans:fo.indexOf(s.f), ex:line(s)});
+    pool.push({sub:s, q:"<b>" + s.n + "</b> の化学式は？", opts:fo.map(F), ans:fo.indexOf(s.f), ex:line(s)});
     // 化学式 → 物質名
     const no = shuffle([s.n, ...pick(S.filter(o => o !== s).map(o => o.n), 3)]);
-    pool.push({q:F(s.f) + " の物質名は？", opts:no, ans:no.indexOf(s.n), ex:line(s)});
+    pool.push({sub:s, q:F(s.f) + " の物質名は？", opts:no, ans:no.indexOf(s.n), ex:line(s)});
     // 条件 → 物質（同じ条件の物質は選択肢に入れない）
     const same = S.filter(o => o.v === s.v && kind(o) === kind(s));
     const co = shuffle([s.n, ...pick(S.filter(o => !same.includes(o)).map(o => o.n), 3)]);
-    pool.push({q:"<b>" + s.v + "価の" + kind(s) + "</b> はどれ？", opts:co, ans:co.indexOf(s.n),
+    pool.push({sub:s, q:"<b>" + s.v + "価の" + kind(s) + "</b> はどれ？", opts:co, ans:co.indexOf(s.n),
       ex: same.length > 1 ? s.v + "価の" + kind(s) + "は " + same.map(o => o.n + "（" + F(o.f) + "）").join(" と ") : line(s)});
   });
   // 同じ問題文の重複（1価の強酸など）を除く
   const seen = new Set();
   return pool.filter(p => seen.has(p.q) ? false : seen.add(p.q));
+}
+
+// 7種類の物質から1問ずつ選び、残りをランダムに足して順番を混ぜる（全物質が必ず出る）
+function pickQuestions(){
+  const pool = makePool();
+  const first = S.map(s => pick(pool.filter(p => p.sub === s), 1)[0]);
+  const rest = pick(pool.filter(p => !first.includes(p)), N_Q - first.length);
+  return shuffle([...first, ...rest]);
 }
 
 // ===== 進行 =====
@@ -296,7 +304,7 @@ function show(id){ document.querySelectorAll(".screen").forEach(s => s.classList
 function secs(){ return Math.floor((performance.now() - t0) / 1000); }
 
 function startQuiz(){
-  qs = pick(makePool(), N_Q);
+  qs = pickQuestions();
   idx = 0; score = 0; wrongs = []; results = [];
   t0 = performance.now();
   clearInterval(timer);
