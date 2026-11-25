@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#fff4e0">
+<title>酸・塩基クイズ</title>
+<style>
+  :root{
+    --bg:#fff7ea; --card:#ffffff; --text:#2d2a32; --sub:#7a7280; --line:#f0e4d0;
+    --acid:#ff6b6b; --acidD:#d94848; --base:#4d96ff; --baseD:#2f72d6;
+    --ok:#22b07d; --okBg:#e3f7ee; --ng:#ff5a5f; --ngBg:#ffe8e8;
+    --accent:#ffb627; --accentD:#e0951a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; height:100%;}
+  body{
+    background:
+      radial-gradient(circle at 10% 0%, #ffe1d6 0, transparent 40%),
+      radial-gradient(circle at 100% 30%, #dceaff 0, transparent 40%),
+      var(--bg);
+    background-attachment:fixed;
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;
+    touch-action:manipulation; user-select:none; -webkit-user-select:none; overscroll-behavior:none;
+  }
+  .app{max-width:440px; margin:0 auto; min-height:100%; display:flex; flex-direction:column;
+       padding:calc(env(safe-area-inset-top) + 10px) 16px calc(env(safe-area-inset-bottom) + 16px);}
+  .screen{display:none; flex:1; flex-direction:column;}
+  .screen.on{display:flex;}
+  .num{font-variant-numeric:tabular-nums;}
+  .f{font-family:"Helvetica Neue",Arial,sans-serif; font-weight:700; letter-spacing:.02em;}
+  sub{font-size:.68em; line-height:0;}
+
+  /* ===== タイトル ===== */
+  .menu-link{align-self:flex-start; color:var(--sub); font-size:14px; text-decoration:none; padding:6px 2px;}
+  .title-wrap{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; text-align:center;}
+  .logo{display:flex; gap:14px;}
+  .bubble{width:84px; height:84px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+          color:#fff; font-size:26px; font-family:"Helvetica Neue",Arial,sans-serif; font-weight:800;
+          animation:float 3s ease-in-out infinite;}
+  .bubble.a{background:radial-gradient(circle at 30% 30%, #ff9a9a, var(--acid)); box-shadow:0 6px 0 var(--acidD);}
+  .bubble.b{background:radial-gradient(circle at 30% 30%, #8fbcff, var(--base)); box-shadow:0 6px 0 var(--baseD); animation-delay:-1.5s;}
+  .bubble sup{font-size:.6em;}
+  @keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+  h1{margin:0; font-size:34px; font-weight:800; letter-spacing:.06em;}
+  h1 .a{color:var(--acid);} h1 .b{color:var(--base);}
+  .catch{margin:-12px 0 0; color:var(--sub); font-size:15px;}
+  .info{background:var(--card); border-radius:18px; padding:14px 18px; font-size:15px; line-height:1.8;
+        box-shadow:0 2px 8px rgba(120,90,40,.08);}
+  .info b{color:var(--accentD);}
+  .best-lbl{color:var(--sub); font-size:13px; letter-spacing:.2em;}
+  .best-val{font-size:26px; font-weight:800; margin-top:2px;}
+  .start{border:none; border-radius:40px; padding:18px 64px; cursor:pointer;
+         background:linear-gradient(180deg,#ffcb52,var(--accent)); box-shadow:0 6px 0 var(--accentD);
+         color:#fff; font-size:24px; font-weight:800; letter-spacing:.1em; text-shadow:0 1px 0 rgba(0,0,0,.15);}
+  .start:active{transform:translateY(5px); box-shadow:0 1px 0 var(--accentD);}
+
+  /* ===== クイズ ===== */
+  .topbar{display:flex; align-items:center; justify-content:space-between; height:40px;}
+  .quit{border:none; background:var(--card); color:var(--sub); border-radius:20px; padding:8px 14px;
+        font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,.08);}
+  .timer{font-size:15px; color:var(--sub);}
+  .timer b{color:var(--text); font-size:18px;}
+  .prog{display:flex; gap:5px; margin:12px 0 14px;}
+  .prog i{flex:1; height:8px; border-radius:4px; background:var(--line);}
+  .prog i.ok{background:var(--ok);} .prog i.ng{background:var(--ng);} .prog i.now{background:var(--accent);}
+  .qcard{background:var(--card); border-radius:22px; padding:18px 18px 22px; text-align:center;
+         box-shadow:0 3px 12px rgba(120,90,40,.1); position:relative;}
+  .qno{display:inline-block; background:var(--accent); color:#fff; font-weight:800; border-radius:14px; padding:3px 14px; font-size:14px;}
+  .qtext{font-size:22px; line-height:1.6; margin-top:12px; font-weight:700;}
+  .qtext b{font-size:26px;}
+  .qtext .f{font-size:32px;}
+  .opts{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px;}
+  .opt{border:none; border-radius:18px; background:var(--card); color:var(--text); min-height:78px; padding:10px 8px;
+       font-size:19px; font-weight:700; cursor:pointer; box-shadow:0 4px 0 var(--line), 0 2px 8px rgba(120,90,40,.08);
+       font-family:inherit; line-height:1.3;}
+  .opt .f{font-size:22px;}
+  .opt.long{font-size:16px;}
+  .opt:active{transform:translateY(3px); box-shadow:0 1px 0 var(--line);}
+  .opt.ok{background:var(--okBg); color:var(--ok); box-shadow:0 4px 0 var(--ok); outline:3px solid var(--ok);}
+  .opt.ng{background:var(--ngBg); color:var(--ng); box-shadow:0 4px 0 var(--ng); animation:shake .35s;}
+  .opt.dim{opacity:.45;}
+  .opts.lock .opt{pointer-events:none;}
+  @keyframes shake{0%,100%{translate:0;}25%{translate:-6px;}50%{translate:6px;}75%{translate:-4px;}}
+
+  .mark{position:fixed; left:50%; top:34%; transform:translate(-50%,-50%); font-size:150px; font-weight:900;
+        pointer-events:none; opacity:0; z-index:5; line-height:1;}
+  .mark.show{animation:mark .7s ease-out forwards;}
+  .mark.ok{color:var(--ok);} .mark.ng{color:var(--ng);}
+  @keyframes mark{0%{opacity:0; transform:translate(-50%,-50%) scale(.4);}30%{opacity:.9; transform:translate(-50%,-50%) scale(1.05);}100%{opacity:0; transform:translate(-50%,-50%) scale(1);}}
+
+  .feedback{display:none; margin-top:16px; border-radius:18px; padding:14px 16px; font-size:16px; line-height:1.7;}
+  .feedback.on{display:block;}
+  .feedback.ok{background:var(--okBg);} .feedback.ng{background:var(--ngBg);}
+  .feedback .hd{font-weight:800; font-size:18px;}
+  .feedback b, .rv b, .f{white-space:nowrap;}
+  .feedback.ok .hd{color:var(--ok);} .feedback.ng .hd{color:var(--ng);}
+  .nextBtn{display:block; width:100%; margin-top:12px; border:none; border-radius:16px; padding:15px 0; cursor:pointer;
+           background:var(--accent); box-shadow:0 5px 0 var(--accentD); color:#fff; font-size:19px; font-weight:800;}
+  .nextBtn:active{transform:translateY(4px); box-shadow:0 1px 0 var(--accentD);}
+
+  /* やめる確認 */
+  .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:20;
+         background:rgba(60,40,20,.35); padding:16px;}
+  .modal.on{display:flex;}
+  .dialog{background:#fff; border-radius:22px; padding:24px 20px 20px; width:100%; max-width:320px; text-align:center;
+          box-shadow:0 10px 30px rgba(0,0,0,.2);}
+  .dialog p{margin:0 0 6px; font-size:18px; font-weight:800;}
+  .dialog .note{font-size:13px; color:var(--sub); margin-bottom:18px;}
+  .dialog .row{display:flex; gap:10px;}
+  .dialog button{flex:1; border:none; border-radius:14px; padding:13px 0; font-size:16px; font-weight:700; cursor:pointer;}
+  .yes{background:var(--ng); color:#fff;} .no{background:#f1ece4; color:var(--text);}
+
+  /* ===== 結果 ===== */
+  .res-wrap{flex:1; display:flex; flex-direction:column; align-items:center; gap:14px; text-align:center; padding-top:12px;}
+  .res-msg{font-size:26px; font-weight:800; color:var(--accentD);}
+  .score{font-size:20px; font-weight:700;}
+  .score b{font-size:64px; color:var(--text); line-height:1;}
+  .res-sub{color:var(--sub); font-size:15px;}
+  .newbest{color:var(--acid); font-size:20px; font-weight:800; animation:pop .6s;}
+  @keyframes pop{0%{transform:scale(.4);opacity:0;}70%{transform:scale(1.15);}100%{transform:scale(1);opacity:1;}}
+  .review{width:100%; text-align:left;}
+  .review h2{font-size:16px; margin:6px 0 8px; color:var(--sub);}
+  .rv{background:var(--card); border-radius:16px; padding:12px 14px; margin-bottom:10px; font-size:15px; line-height:1.7;
+      box-shadow:0 2px 8px rgba(120,90,40,.08); border-left:6px solid var(--ng);}
+  .rv .q{font-weight:700;}
+  .rv .you{color:var(--ng);} .rv .ans{color:var(--ok); font-weight:700;}
+  .rv .ex{color:var(--sub); font-size:14px;}
+  .perfect{background:var(--okBg); color:var(--ok); border-radius:16px; padding:14px; font-weight:700; width:100%;}
+  .btns{display:flex; gap:10px; width:100%; margin-top:4px;}
+  .btn{flex:1; border:none; border-radius:16px; padding:15px 0; font-size:18px; font-weight:800; cursor:pointer;}
+  .btn.main{background:var(--accent); color:#fff; box-shadow:0 5px 0 var(--accentD);}
+  .btn.main:active{transform:translateY(4px); box-shadow:0 1px 0 var(--accentD);}
+  .btn.sub{background:#fff; color:var(--text); box-shadow:0 2px 8px rgba(120,90,40,.12);}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- タイトル -->
+  <section class="screen on" id="start">
+    <a class="menu-link" href="../">← メニューへ</a>
+    <div class="title-wrap">
+      <div class="logo" aria-hidden="true">
+        <div class="bubble a">H<sup>+</sup></div>
+        <div class="bubble b">OH<sup>−</sup></div>
+      </div>
+      <h1><span class="a">酸</span>・<span class="b">塩基</span>クイズ</h1>
+      <p class="catch">価数・強弱・化学式をチェック！</p>
+      <div class="info">4択問題が <b>10問</b> 出ます。<br>まちがえたら解説を読んで覚えよう！</div>
+      <div>
+        <div class="best-lbl">BEST</div>
+        <div class="best-val num" id="bestStart">まだ記録なし</div>
+      </div>
+      <button class="start" id="startBtn">スタート</button>
+    </div>
+  </section>
+
+  <!-- クイズ -->
+  <section class="screen" id="quiz">
+    <div class="topbar">
+      <button class="quit" id="quitBtn">✕ やめる</button>
+      <div class="timer">タイム <b class="num" id="time">0</b> 秒</div>
+    </div>
+    <div class="prog" id="prog"></div>
+    <div class="qcard">
+      <span class="qno" id="qno">第1問</span>
+      <div class="qtext" id="qtext"></div>
+    </div>
+    <div class="opts" id="opts"></div>
+    <div class="feedback" id="fb">
+      <div class="hd" id="fbHd"></div>
+      <div id="fbEx"></div>
+      <button class="nextBtn" id="nextBtn">次へ</button>
+    </div>
+  </section>
+
+  <!-- 結果 -->
+  <section class="screen" id="result">
+    <div class="res-wrap">
+      <div class="res-msg" id="rMsg"></div>
+      <div class="score">10問中 <b class="num" id="rScore"></b> 問 正解</div>
+      <div class="res-sub" id="rTime"></div>
+      <div class="newbest" id="rNew" hidden>★ 自己ベスト更新！ ★</div>
+      <div class="res-sub" id="rBest"></div>
+      <div class="review" id="review"></div>
+      <div class="btns">
+        <button class="btn sub" id="topBtn">タイトルへ</button>
+        <button class="btn main" id="retryBtn">もう一度</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="mark" id="mark"></div>
+<div class="modal" id="modal">
+  <div class="dialog">
+    <p>クイズをやめますか？</p>
+    <div class="note">タイトルに戻ります。記録は残りません。</div>
+    <div class="row">
+      <button class="no" id="noBtn">つづける</button>
+      <button class="yes" id="yesBtn">やめる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 物質データ（fake はまちがえやすいニセの化学式） =====
+const S = [
+  {n:"塩酸",           f:"HCl",                     v:1, t:"酸",   s:"強", fake:["HCl<sub>2</sub>","H<sub>2</sub>Cl","ClH<sub>2</sub>"]},
+  {n:"硝酸",           f:"HNO<sub>3</sub>",          v:1, t:"酸",   s:"強", fake:["HNO<sub>2</sub>","H<sub>2</sub>NO<sub>3</sub>","HNO<sub>4</sub>"]},
+  {n:"硫酸",           f:"H<sub>2</sub>SO<sub>4</sub>", v:2, t:"酸", s:"強", fake:["H<sub>2</sub>SO<sub>3</sub>","HSO<sub>4</sub>","H<sub>3</sub>SO<sub>4</sub>"]},
+  {n:"酢酸",           f:"CH<sub>3</sub>COOH",       v:1, t:"酸",   s:"弱", fake:["CH<sub>3</sub>COH","CH<sub>4</sub>COOH","CH<sub>3</sub>OOH"]},
+  {n:"水酸化ナトリウム", f:"NaOH",                    v:1, t:"塩基", s:"強", fake:["NaOH<sub>2</sub>","Na(OH)<sub>2</sub>","Na<sub>2</sub>OH"]},
+  {n:"水酸化カルシウム", f:"Ca(OH)<sub>2</sub>",       v:2, t:"塩基", s:"強", fake:["CaOH","CaOH<sub>2</sub>","Ca<sub>2</sub>OH"]},
+  {n:"アンモニア",      f:"NH<sub>3</sub>",           v:1, t:"塩基", s:"弱", fake:["NH<sub>4</sub>","NH<sub>2</sub>","N<sub>3</sub>H"]}
+];
+const N_Q = 10;
+const KEY = "sanenki-best";
+const KINDS = ["強酸","弱酸","強塩基","弱塩基"];
+const VALS = ["1価","2価","3価","4価"];
+
+const $ = id => document.getElementById(id);
+const kind = s => s.s + s.t;
+const F = f => '<span class="f">' + f + '</span>';
+const line = s => s.n + "　" + F(s.f) + "　は <b>" + s.v + "価の" + kind(s) + "</b>";
+const shuffle = a => { for(let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const pick = (a, k) => shuffle(a.slice()).slice(0, k);
+
+// ===== 問題を作る =====
+function makePool(){
+  const pool = [];
+  S.forEach(s => {
+    // 価数
+    pool.push({q:"<b>" + s.n + "</b> の価数は？", opts:VALS, ans:s.v - 1, ex:line(s)});
+    // 強弱（酸・塩基も含めて）
+    pool.push({q:"<b>" + s.n + "</b> は次のうちどれ？", opts:KINDS, ans:KINDS.indexOf(kind(s)), ex:line(s)});
+    // 物質名 → 化学式（ニセの化学式2つ＋ほかの物質1つ）
+    const others = S.filter(o => o !== s).map(o => o.f);
+    const fo = shuffle([s.f, ...pick(s.fake, 2), ...pick(others, 1)]);
+    pool.push({q:"<b>" + s.n + "</b> の化学式は？", opts:fo.map(F), ans:fo.indexOf(s.f), ex:line(s)});
+    // 化学式 → 物質名
+    const no = shuffle([s.n, ...pick(S.filter(o => o !== s).map(o => o.n), 3)]);
+    pool.push({q:F(s.f) + " の物質名は？", opts:no, ans:no.indexOf(s.n), ex:line(s)});
+    // 条件 → 物質（同じ条件の物質は選択肢に入れない）
+    const same = S.filter(o => o.v === s.v && kind(o) === kind(s));
+    const co = shuffle([s.n, ...pick(S.filter(o => !same.includes(o)).map(o => o.n), 3)]);
+    pool.push({q:"<b>" + s.v + "価の" + kind(s) + "</b> はどれ？", opts:co, ans:co.indexOf(s.n),
+      ex: same.length > 1 ? s.v + "価の" + kind(s) + "は " + same.map(o => o.n + "（" + F(o.f) + "）").join(" と ") : line(s)});
+  });
+  // 同じ問題文の重複（1価の強酸など）を除く
+  const seen = new Set();
+  return pool.filter(p => seen.has(p.q) ? false : seen.add(p.q));
+}
+
+// ===== 進行 =====
+let qs, idx, score, wrongs, results, t0, timer;
+
+function getBest(){ try{ return JSON.parse(localStorage.getItem(KEY)); }catch(e){ return null; } }
+function setBest(b){ try{ localStorage.setItem(KEY, JSON.stringify(b)); }catch(e){} }
+function bestText(b){ return b ? b.score + "問正解（" + b.time + "秒）" : "まだ記録なし"; }
+function show(id){ document.querySelectorAll(".screen").forEach(s => s.classList.toggle("on", s.id === id)); window.scrollTo(0, 0); }
+function secs(){ return Math.floor((performance.now() - t0) / 1000); }
+
+function startQuiz(){
+  qs = pick(makePool(), N_Q);
+  idx = 0; score = 0; wrongs = []; results = [];
+  t0 = performance.now();
+  clearInterval(timer);
+  timer = setInterval(() => $("time").textContent = secs(), 250);
+  $("time").textContent = "0";
+  show("quiz");
+  render();
+}
+
+function render(){
+  const q = qs[idx];
+  $("qno").textContent = "第" + (idx + 1) + "問";
+  $("qtext").innerHTML = q.q;
+  $("prog").innerHTML = qs.map((_, i) => '<i class="' + (i < idx ? results[i] : i === idx ? "now" : "") + '"></i>').join("");
+  const box = $("opts");
+  box.className = "opts";
+  box.innerHTML = "";
+  q.opts.forEach((o, i) => {
+    const b = document.createElement("button");
+    b.className = "opt" + (o.replace(/<[^>]+>/g, "").length > 6 ? " long" : "");
+    b.innerHTML = o;
+    b.addEventListener("click", () => answer(i));
+    box.appendChild(b);
+  });
+  $("fb").className = "feedback";
+}
+
+function answer(i){
+  const q = qs[idx];
+  const ok = i === q.ans;
+  const btns = [...$("opts").children];
+  $("opts").classList.add("lock");
+  btns.forEach((b, k) => {
+    if(k === q.ans) b.classList.add("ok");
+    else if(k === i) b.classList.add("ng");
+    else b.classList.add("dim");
+  });
+  const m = $("mark");
+  m.textContent = ok ? "◯" : "✕";
+  m.className = "mark " + (ok ? "ok" : "ng");
+  void m.offsetWidth; m.classList.add("show");
+  if(ok) score++;
+  else{
+    wrongs.push({q:q.q, you:q.opts[i], ans:q.opts[q.ans], ex:q.ex});
+    if(navigator.vibrate) navigator.vibrate(80);
+  }
+  results[idx] = ok ? "ok" : "ng";
+  $("prog").children[idx].className = results[idx];
+  $("fbHd").innerHTML = ok ? "正解！" : "ざんねん… 正解は「" + q.opts[q.ans] + "」";
+  $("fbEx").innerHTML = q.ex;
+  $("fb").className = "feedback on " + (ok ? "ok" : "ng");
+  $("nextBtn").textContent = idx === N_Q - 1 ? "結果を見る" : "次へ";
+  $("fb").scrollIntoView({behavior:"smooth", block:"nearest"});
+}
+
+function next(){
+  idx++;
+  if(idx >= N_Q){ finish(); return; }
+  render();
+  window.scrollTo(0, 0);
+}
+
+function finish(){
+  clearInterval(timer);
+  const t = secs();
+  const old = getBest();
+  const isNew = !old || score > old.score || (score === old.score && t < old.time);
+  if(isNew) setBest({score, time:t});
+  $("rMsg").textContent = score === 10 ? "パーフェクト！🎉" : score >= 8 ? "すばらしい！" : score >= 5 ? "もう少し！" : "復習してもう一度！";
+  $("rScore").textContent = score;
+  $("rTime").textContent = "タイム " + t + " 秒";
+  $("rNew").hidden = !isNew;
+  $("rBest").textContent = "自己ベスト：" + bestText(getBest());
+  $("review").innerHTML = wrongs.length === 0
+    ? '<div class="perfect">全問正解！ よく覚えています 👏</div>'
+    : "<h2>まちがえた問題</h2>" + wrongs.map(w =>
+        '<div class="rv"><div class="q">' + w.q + '</div>' +
+        '<div><span class="you">あなた：' + w.you + '</span>　<span class="ans">正解：' + w.ans + '</span></div>' +
+        '<div class="ex">' + w.ex + '</div></div>').join("");
+  show("result");
+}
+
+function toTitle(){ clearInterval(timer); $("bestStart").textContent = bestText(getBest()); show("start"); }
+
+$("startBtn").addEventListener("click", startQuiz);
+$("retryBtn").addEventListener("click", startQuiz);
+$("topBtn").addEventListener("click", toTitle);
+$("nextBtn").addEventListener("click", next);
+$("quitBtn").addEventListener("click", () => $("modal").classList.add("on"));
+$("noBtn").addEventListener("click", () => $("modal").classList.remove("on"));
+$("yesBtn").addEventListener("click", () => { $("modal").classList.remove("on"); toTitle(); });
+$("bestStart").textContent = bestText(getBest());
+</script>
+</body>
+</html>
