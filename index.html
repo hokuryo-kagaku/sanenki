@@ -133,6 +133,42 @@
   .dialog button{flex:1; border:none; border-radius:14px; padding:13px 0; font-size:16px; font-weight:700; cursor:pointer;}
   .yes{background:var(--ng); color:#fff;} .no{background:#f1ece4; color:var(--text);}
 
+  /* ===== 結果（得点で演出が変わる：perfect / great / ok / low） ===== */
+  .stage{position:relative; width:100%; padding:22px 0 18px; border-radius:26px; overflow:hidden; isolation:isolate;}
+  .stage > *:not(.rays){position:relative; z-index:1;}
+  .rays{position:absolute; left:50%; top:50%; width:760px; height:760px; margin:-380px 0 0 -380px; z-index:0; display:none;
+        background:repeating-conic-gradient(rgba(255,190,40,.28) 0 9deg, transparent 9deg 18deg);
+        animation:spin 14s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .crown{display:none; font-size:64px; line-height:1; animation:crown 1s cubic-bezier(.2,1.6,.4,1) both;}
+  @keyframes crown{0%{transform:translateY(-60px) scale(.3) rotate(-30deg); opacity:0;}100%{transform:none; opacity:1;}}
+  .res-badge{display:none; margin:6px auto 0; width:max-content; border-radius:20px; padding:4px 16px; font-weight:800; font-size:15px;}
+  .stars{margin:8px 0 4px; height:52px;}
+  .stars span{display:inline-block; font-size:46px; line-height:1; margin:0 3px; color:#e9dfcd; transform:scale(0);
+              animation:starPop .45s cubic-bezier(.2,1.8,.4,1) forwards;}
+  .stars span:nth-child(1){animation-delay:.25s;} .stars span:nth-child(2){animation-delay:.5s;} .stars span:nth-child(3){animation-delay:.75s;}
+  .stars span.on{color:#ffb627; text-shadow:0 0 14px rgba(255,182,39,.7), 0 3px 0 #e0951a;}
+  @keyframes starPop{0%{transform:scale(0) rotate(-90deg);}100%{transform:scale(1) rotate(0);}}
+
+  .tier-perfect{background:radial-gradient(circle at 50% 40%, #fff6c8, #ffe28a 55%, #ffc94d);
+                box-shadow:0 0 0 4px #ffd35c, 0 10px 30px rgba(230,160,20,.35);}
+  .tier-perfect .rays{display:block;}
+  .tier-perfect .crown{display:block;}
+  .tier-perfect .res-msg{font-size:40px; background:linear-gradient(90deg,#c97a00,#ff9d00,#ffdd55,#ff9d00,#c97a00); background-size:200% auto;
+                         -webkit-background-clip:text; background-clip:text; color:transparent; animation:shine 2s linear infinite, pop .6s;}
+  @keyframes shine{to{background-position:200% center;}}
+  .tier-perfect .res-badge{display:block; background:#c97a00; color:#fff; animation:pop .6s .9s both;}
+  .tier-perfect .score b{color:#c97a00;}
+  .tier-great{background:radial-gradient(circle at 50% 40%, #fffaf0, #ffe9c2); box-shadow:0 0 0 3px #ffe0a3;}
+  .tier-great .rays{display:block; opacity:.5;}
+  .tier-great .res-msg{font-size:34px; animation:pop .6s;}
+  .tier-great .res-badge{display:block; background:#fff; color:var(--accentD); animation:pop .6s .9s both;}
+
+  .confetti{position:fixed; inset:0; pointer-events:none; z-index:30; overflow:hidden;}
+  .confetti i{position:absolute; top:-20px; width:9px; height:14px; border-radius:2px; animation:fall linear forwards;}
+  @keyframes fall{to{transform:translate(var(--dx), 110vh) rotate(var(--r));}}
+  @media (prefers-reduced-motion: reduce){ .rays, .confetti{display:none !important;} }
+
   /* ===== 結果 ===== */
   .res-wrap{flex:1; display:flex; flex-direction:column; align-items:center; gap:14px; text-align:center; padding-top:12px;}
   .res-msg{font-size:26px; font-weight:800; color:var(--accentD);}
@@ -193,7 +229,7 @@
   <section class="screen" id="quiz">
     <div class="topbar">
       <button class="quit" id="quitBtn">✕ やめる</button>
-      <div class="timer">タイム <b class="num" id="time">0</b> 秒</div>
+      <div class="timer">正解 <b class="num" id="okCount">0</b></div>
     </div>
     <div class="prog" id="prog"></div>
     <div class="qcard">
@@ -211,9 +247,14 @@
   <!-- 結果 -->
   <section class="screen" id="result">
     <div class="res-wrap">
-      <div class="res-msg" id="rMsg"></div>
-      <div class="score">10問中 <b class="num" id="rScore"></b> 問 正解</div>
-      <div class="res-sub" id="rTime"></div>
+      <div class="stage" id="stage">
+        <div class="rays"></div>
+        <div class="crown">👑</div>
+        <div class="res-msg" id="rMsg"></div>
+        <div class="res-badge" id="rBadge"></div>
+        <div class="stars" id="stars"><span>★</span><span>★</span><span>★</span></div>
+        <div class="score">10問中 <b class="num" id="rScore"></b> 問 正解</div>
+      </div>
       <div class="newbest" id="rNew" hidden>★ 自己ベスト更新！ ★</div>
       <div class="res-sub" id="rBest"></div>
       <div class="review" id="review"></div>
@@ -295,21 +336,18 @@ function pickQuestions(){
 }
 
 // ===== 進行 =====
-let qs, idx, score, wrongs, results, t0, timer;
+let qs, idx, score, wrongs, results;
 
 function getBest(){ try{ return JSON.parse(localStorage.getItem(KEY)); }catch(e){ return null; } }
 function setBest(b){ try{ localStorage.setItem(KEY, JSON.stringify(b)); }catch(e){} }
-function bestText(b){ return b ? b.score + "問正解（" + b.time + "秒）" : "まだ記録なし"; }
+function bestText(b){ return b ? "10問中 " + b.score + "問正解" : "まだ記録なし"; }
 function show(id){ document.querySelectorAll(".screen").forEach(s => s.classList.toggle("on", s.id === id)); window.scrollTo(0, 0); }
-function secs(){ return Math.floor((performance.now() - t0) / 1000); }
 
 function startQuiz(){
   qs = pickQuestions();
   idx = 0; score = 0; wrongs = []; results = [];
-  t0 = performance.now();
-  clearInterval(timer);
-  timer = setInterval(() => $("time").textContent = secs(), 250);
-  $("time").textContent = "0";
+  $("okCount").textContent = "0";
+  clearConfetti();
   show("quiz");
   render();
 }
@@ -346,7 +384,7 @@ function answer(i){
   m.textContent = ok ? "◯" : "✕";
   m.className = "mark " + (ok ? "ok" : "ng");
   void m.offsetWidth; m.classList.add("show");
-  if(ok) score++;
+  if(ok){ score++; $("okCount").textContent = score; }
   else{
     wrongs.push({q:q.q, you:q.opts[i], ans:q.opts[q.ans], ex:q.ex});
     if(navigator.vibrate) navigator.vibrate(80);
@@ -367,16 +405,50 @@ function next(){
   window.scrollTo(0, 0);
 }
 
+// 紙吹雪（n 枚を waves 回に分けて降らせる）
+function confetti(n, waves){
+  clearConfetti();
+  const box = document.createElement("div");
+  box.className = "confetti"; box.id = "confetti";
+  const colors = ["#ff6b6b","#4d96ff","#ffb627","#22b07d","#b07cff","#ff8fc7"];
+  for(let i = 0; i < n; i++){
+    const p = document.createElement("i");
+    p.style.left = Math.random() * 100 + "%";
+    p.style.background = colors[i % colors.length];
+    p.style.setProperty("--dx", (Math.random() * 160 - 80) + "px");
+    p.style.setProperty("--r", (Math.random() * 1080 - 540) + "deg");
+    p.style.animationDuration = (2.4 + Math.random() * 2) + "s";
+    p.style.animationDelay = (Math.floor(Math.random() * waves) * 1.2 + Math.random() * .8) + "s";
+    if(Math.random() < .3){ p.style.width = p.style.height = "10px"; p.style.borderRadius = "50%"; }
+    box.appendChild(p);
+  }
+  document.body.appendChild(box);
+  clearTimeout(confetti.t); confetti.t = setTimeout(clearConfetti, waves * 1200 + 5000);
+}
+function clearConfetti(){ const c = $("confetti"); if(c) c.remove(); }
+
+// 得点を 0 から数え上げる
+function countUp(el, to){
+  let n = 0; el.textContent = 0;
+  if(to === 0) return;
+  const iv = setInterval(() => { n++; el.textContent = n; if(n >= to) clearInterval(iv); }, Math.min(90, 900 / to));
+}
+
 function finish(){
-  clearInterval(timer);
-  const t = secs();
   const old = getBest();
-  const isNew = !old || score > old.score || (score === old.score && t < old.time);
-  if(isNew) setBest({score, time:t});
-  $("rMsg").textContent = score === 10 ? "パーフェクト！🎉" : score >= 8 ? "すばらしい！" : score >= 5 ? "もう少し！" : "復習してもう一度！";
-  $("rScore").textContent = score;
-  $("rTime").textContent = "タイム " + t + " 秒";
+  const isNew = !old || score > old.score;
+  if(isNew) setBest({score});
+  const tier = score === 10 ? "perfect" : score >= 8 ? "great" : score >= 5 ? "ok" : "low";
+  $("stage").className = "stage tier-" + tier;
+  $("rMsg").textContent = {perfect:"パーフェクト！", great:"すばらしい！", ok:"もう少し！", low:"復習してもう一度！"}[tier];
+  $("rBadge").textContent = {perfect:"🏆 酸・塩基マスター 🏆", great:"あと少しで満点！", ok:"", low:""}[tier];
+  const nStars = {perfect:3, great:2, ok:1, low:0}[tier];
+  // 星をアニメーションし直すため作り直す
+  $("stars").innerHTML = [0,1,2].map(i => '<span class="' + (i < nStars ? "on" : "") + '">★</span>').join("");
+  countUp($("rScore"), score);
   $("rNew").hidden = !isNew;
+  if(tier === "perfect"){ confetti(160, 3); if(navigator.vibrate) navigator.vibrate([80,60,80,60,200]); }
+  else if(tier === "great"){ confetti(70, 1); }
   $("rBest").textContent = "自己ベスト：" + bestText(getBest());
   $("review").innerHTML = wrongs.length === 0
     ? '<div class="perfect">全問正解！ よく覚えています 👏</div>'
@@ -389,7 +461,7 @@ function finish(){
 
 // タイトルの BEST は、一度でも最後まで遊んだ記録があるときだけ表示する
 function showStartBest(){ const b = getBest(); $("bestBox").hidden = !b; if(b) $("bestStart").textContent = bestText(b); }
-function toTitle(){ clearInterval(timer); showStartBest(); show("start"); }
+function toTitle(){ clearConfetti(); showStartBest(); show("start"); }
 
 // ===== まとめ画面（物質データ S から作る） =====
 function buildSummary(){
