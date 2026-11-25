@@ -56,6 +56,27 @@
          color:#fff; font-size:24px; font-weight:800; letter-spacing:.1em; text-shadow:0 1px 0 rgba(0,0,0,.15);}
   .start:active{transform:translateY(5px); box-shadow:0 1px 0 var(--accentD);}
 
+  .sumBtn{border:none; border-radius:30px; padding:12px 28px; cursor:pointer; background:#fff; color:var(--text);
+          font-size:16px; font-weight:700; box-shadow:0 3px 0 var(--line), 0 2px 8px rgba(120,90,40,.1); margin-top:-8px;}
+  .sumBtn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--line);}
+
+  /* ===== まとめ ===== */
+  .sum-head{display:flex; align-items:center; gap:10px; height:44px;}
+  .sum-head h2{margin:0; font-size:20px; font-weight:800;}
+  .sec{margin-top:14px;}
+  .sec-ttl{display:inline-block; color:#fff; font-weight:800; font-size:16px; border-radius:14px; padding:4px 16px; margin-bottom:10px;}
+  .sec-ttl.acid{background:var(--acid);} .sec-ttl.base{background:var(--base);}
+  .item{display:flex; align-items:center; gap:10px; background:var(--card); border-radius:16px; padding:12px 14px; margin-bottom:8px;
+        box-shadow:0 2px 8px rgba(120,90,40,.08);}
+  .item .nm{font-size:15px; font-weight:700; color:var(--sub);}
+  .item .fm{font-size:24px; margin-top:2px;}
+  .badges{margin-left:auto; display:flex; gap:6px; flex-shrink:0;}
+  .bd{border-radius:10px; padding:5px 9px; font-weight:800; font-size:15px; white-space:nowrap;}
+  .bd.v{background:#f3ede3; color:var(--text);}
+  .bd.sa{background:var(--acid); color:#fff;}  .bd.wa{background:#ffe3e3; color:var(--acidD);}
+  .bd.sb{background:var(--base); color:#fff;}  .bd.wb{background:#e2edff; color:var(--baseD);}
+  .sum-note{font-size:13px; color:var(--sub); line-height:1.7; margin:10px 2px 16px;}
+
   /* ===== クイズ ===== */
   .topbar{display:flex; align-items:center; justify-content:space-between; height:40px;}
   .quit{border:none; background:var(--card); color:var(--sub); border-radius:20px; padding:8px 14px;
@@ -154,7 +175,18 @@
         <div class="best-val num" id="bestStart"></div>
       </div>
       <button class="start" id="startBtn">スタート</button>
+      <button class="sumBtn" id="sumBtn">📋 酸・塩基のまとめを見る</button>
     </div>
+  </section>
+
+  <!-- まとめ -->
+  <section class="screen" id="summary">
+    <div class="sum-head">
+      <button class="quit" id="sumBack">← もどる</button>
+      <h2>酸・塩基のまとめ</h2>
+    </div>
+    <div id="sumBody"></div>
+    <button class="nextBtn" id="sumStart">クイズに挑戦する</button>
   </section>
 
   <!-- クイズ -->
@@ -350,6 +382,20 @@ function finish(){
 // タイトルの BEST は、一度でも最後まで遊んだ記録があるときだけ表示する
 function showStartBest(){ const b = getBest(); $("bestBox").hidden = !b; if(b) $("bestStart").textContent = bestText(b); }
 function toTitle(){ clearInterval(timer); showStartBest(); show("start"); }
+
+// ===== まとめ画面（物質データ S から作る） =====
+function buildSummary(){
+  const cls = {"強酸":"sa","弱酸":"wa","強塩基":"sb","弱塩基":"wb"};
+  const sec = (t, label, c) => '<div class="sec"><span class="sec-ttl ' + c + '">' + label + '</span>' +
+    S.filter(s => s.t === t).map(s =>
+      '<div class="item"><div><div class="nm">' + s.n + '</div><div class="fm">' + F(s.f) + '</div></div>' +
+      '<div class="badges"><span class="bd v">' + s.v + '価</span><span class="bd ' + cls[kind(s)] + '">' + kind(s) + '</span></div></div>'
+    ).join("") + '</div>';
+  $("sumBody").innerHTML = sec("酸", "酸", "acid") + sec("塩基", "塩基", "base");
+}
+$("sumBtn").addEventListener("click", () => { buildSummary(); show("summary"); });
+$("sumBack").addEventListener("click", toTitle);
+$("sumStart").addEventListener("click", startQuiz);
 
 $("startBtn").addEventListener("click", startQuiz);
 $("retryBtn").addEventListener("click", startQuiz);
